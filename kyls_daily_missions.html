@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Mission Checklist</title>
+<style>
+  :root{
+    --navy-deep:#0B1229;
+    --navy:#1C2541;
+    --panel:#243056;
+    --cream:#FBF8F3;
+    --gold:#F4B942;
+    --coral:#F25C54;
+    --mint:#4ECDC4;
+    --ink:#1C2541;
+    --muted:#7A85A3;
+    font-family:'Nunito', sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap');
+
+  * { box-sizing:border-box; }
+
+  .app{
+    min-height:100%;
+    background:
+      radial-gradient(1.5px 1.5px at 20px 30px, rgba(255,255,255,.5) 100%, transparent),
+      radial-gradient(1.5px 1.5px at 80px 90px, rgba(255,255,255,.4) 100%, transparent),
+      radial-gradient(1px 1px at 140px 40px, rgba(255,255,255,.6) 100%, transparent),
+      radial-gradient(1.5px 1.5px at 200px 120px, rgba(255,255,255,.4) 100%, transparent),
+      radial-gradient(1px 1px at 260px 70px, rgba(255,255,255,.5) 100%, transparent),
+      radial-gradient(1.5px 1.5px at 320px 150px, rgba(255,255,255,.4) 100%, transparent),
+      linear-gradient(180deg, var(--navy-deep), var(--navy) 60%, #2b3a63);
+    background-size: 340px 200px, 340px 200px, 340px 200px, 340px 200px, 340px 200px, 340px 200px, 100% 100%;
+    padding: 28px 16px 40px;
+    color: var(--cream);
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  .wrap{ max-width:640px; margin:0 auto; }
+
+  .top{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+    margin-bottom:16px;
+  }
+  .eyebrow{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold);
+    font-weight:800; margin-bottom:4px;
+  }
+  h1{
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:28px; margin:0;
+    line-height:1.05; color:var(--cream);
+  }
+  .sub{ color:#B9C2E0; font-size:14px; margin-top:6px; font-weight:600; }
+
+  .gear{
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);
+    width:40px; height:40px; border-radius:12px; display:flex; align-items:center;
+    justify-content:center; cursor:pointer; flex-shrink:0; transition:transform .15s ease, background .15s ease;
+  }
+  .gear:hover{ background:rgba(255,255,255,.16); transform:rotate(20deg); }
+  .gear svg{ width:18px; height:18px; stroke:var(--cream); }
+
+  /* PIN lock modal */
+  .pin-overlay{
+    position:fixed; inset:0; background:rgba(11,18,41,.72); backdrop-filter:blur(2px);
+    display:none; align-items:center; justify-content:center; z-index:1000; padding:20px;
+  }
+  .pin-modal{
+    background:var(--panel); border:1px solid rgba(255,255,255,.1); border-radius:20px;
+    padding:24px; width:100%; max-width:300px; box-shadow:0 20px 40px rgba(0,0,0,.4);
+  }
+  .pin-title{
+    font-family:'Baloo 2'; font-weight:800; font-size:18px; color:var(--cream);
+    margin-bottom:4px;
+  }
+  .pin-subtitle{ color:#B9C2E0; font-size:13px; font-weight:600; margin-bottom:16px; }
+  .pin-input{
+    width:100%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+    border-radius:12px; padding:12px 14px; color:var(--cream); font-size:20px;
+    letter-spacing:6px; text-align:center; font-weight:700; box-sizing:border-box;
+  }
+  .pin-input:focus{ outline:none; border-color:var(--gold); }
+  .pin-error{
+    color:var(--coral); font-size:12.5px; font-weight:700; margin-top:8px; text-align:center;
+  }
+  .pin-actions{ display:flex; gap:10px; margin-top:18px; }
+  .pin-btn{
+    flex:1; border:none; border-radius:12px; padding:11px; font-family:'Baloo 2';
+    font-weight:700; font-size:14px; cursor:pointer; transition:opacity .15s ease;
+  }
+  .pin-btn:hover{ opacity:.88; }
+  .pin-btn-secondary{ background:rgba(255,255,255,.08); color:var(--cream); }
+  .pin-btn-primary{ background:var(--gold); color:var(--navy-deep); }
+
+  /* Day type toggle */
+  .daytype{
+    display:flex; background:rgba(255,255,255,.06); border-radius:14px; padding:4px;
+    margin-bottom:18px; border:1px solid rgba(255,255,255,.08);
+  }
+  .daytype button{
+    flex:1; border:none; background:transparent; color:#B9C2E0; font-family:'Baloo 2';
+    font-weight:700; font-size:13.5px; padding:10px 8px; border-radius:10px; cursor:pointer;
+    transition:all .2s ease;
+  }
+  .daytype button.active{
+    background: var(--gold); color:var(--navy-deep);
+  }
+
+  /* Reward type selector */
+  .reward-select{
+    background:var(--panel); border-radius:20px; padding:16px 16px 18px;
+    margin-bottom:20px; border:1px solid rgba(255,255,255,.06);
+  }
+  .reward-label{
+    color:#B9C2E0; font-size:12.5px; font-weight:800; letter-spacing:.04em;
+    text-transform:uppercase; margin-bottom:10px;
+  }
+  .reward-options{
+    display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  }
+  .reward-btn{
+    border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:var(--cream);
+    font-family:'Baloo 2'; font-weight:700; font-size:13.5px; padding:11px 8px;
+    border-radius:12px; cursor:pointer; transition:all .2s ease;
+  }
+  .reward-btn:hover{ background:rgba(255,255,255,.12); }
+  .reward-btn.active{
+    background:var(--gold); color:var(--navy-deep); border-color:var(--gold);
+  }
+  .reward-other-input{
+    width:100%; box-sizing:border-box; margin-top:10px; background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.16); border-radius:12px; padding:10px 12px;
+    color:var(--cream); font-family:'Nunito'; font-weight:700; font-size:14px;
+  }
+  .reward-other-input:focus{ outline:none; border-color:var(--gold); }
+  .reward-other-input::placeholder{ color:#8B94B5; }
+
+  .unlock-early-btn{
+    display:block; width:100%; margin-top:14px; border:1px solid rgba(255,255,255,.16);
+    background:rgba(255,255,255,.08); color:var(--cream); font-family:'Baloo 2';
+    font-weight:700; font-size:14px; padding:12px; border-radius:12px; cursor:pointer;
+    transition:all .2s ease;
+  }
+  .unlock-early-btn:hover{ background:rgba(255,255,255,.14); }
+
+  /* Launch track */
+  .launch{
+    background:var(--panel);
+    border-radius:20px;
+    padding:20px 18px 16px;
+    margin-bottom:20px;
+    border:1px solid rgba(255,255,255,.06);
+    position:relative;
+  }
+  .launch-row{ display:flex; align-items:center; gap:14px; }
+  .track-outer{
+    flex:1; height:14px; background:rgba(255,255,255,.08); border-radius:99px; position:relative; overflow:visible;
+  }
+  .track-fill{
+    height:100%; border-radius:99px;
+    background:linear-gradient(90deg, var(--coral), var(--gold));
+    width:0%; transition: width .5s cubic-bezier(.34,1.56,.64,1);
+  }
+  .rocket-pin{
+    position:absolute; top:50%; transform:translate(-50%,-50%);
+    font-size:22px; left:0%; transition:left .5s cubic-bezier(.34,1.56,.64,1);
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));
+  }
+  .track-label{
+    font-family:'Baloo 2'; font-weight:700; font-size:14px; color:var(--gold); min-width:48px; text-align:right;
+  }
+  .streak{
+    margin-top:12px; font-size:12.5px; color:#B9C2E0; font-weight:700; display:flex; align-items:center; gap:6px;
+  }
+
+  /* Tasks */
+  .missions-label{
+    font-family:'Baloo 2'; font-weight:700; font-size:13px; letter-spacing:.06em; text-transform:uppercase;
+    color:#B9C2E0; margin: 4px 2px 10px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .task{
+    background:var(--cream); color:var(--ink); border-radius:16px; padding:12px 14px;
+    display:flex; align-items:center; gap:12px; margin-bottom:9px;
+    box-shadow:0 3px 0 rgba(0,0,0,.12), 0 6px 14px rgba(0,0,0,.18);
+    transition: transform .15s ease, opacity .3s ease;
+    cursor:pointer; user-select:none;
+    position:relative;
+  }
+  .task:active{ transform: scale(.98); }
+  .task.done{ opacity:.55; }
+  .task.done .task-name{ text-decoration: line-through; text-decoration-thickness:2px; }
+
+  .step-num{
+    font-family:'Baloo 2'; font-weight:800; font-size:11.5px; color:var(--muted);
+    width:20px; height:20px; border-radius:50%; background:rgba(28,37,65,.06);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .badge{
+    width:32px; height:32px; border-radius:10px; flex-shrink:0;
+    border:2.5px solid #D9D3C6; background:transparent;
+    display:flex; align-items:center; justify-content:center;
+    transition: all .2s ease;
+  }
+  .task.done .badge{
+    background: var(--gold); border-color: var(--gold);
+    box-shadow: 0 0 0 4px rgba(244,185,66,.25);
+  }
+  .badge svg{ width:17px; height:17px; opacity:0; transform:scale(.5); transition:all .2s ease; stroke:#1C2541; }
+  .task.done .badge svg{ opacity:1; transform:scale(1); }
+
+  .task-main{ flex:1; display:flex; align-items:baseline; gap:8px; min-width:0; }
+  .task-name{ font-weight:700; font-size:14.5px; line-height:1.25; }
+  .min-pill{
+    font-family:'Baloo 2'; font-weight:800; font-size:11.5px; color:var(--navy-deep);
+    background:rgba(28,37,65,.08); padding:2px 8px; border-radius:999px; white-space:nowrap;
+    flex-shrink:0;
+  }
+  .task.done .min-pill{ background:rgba(244,185,66,.35); }
+  .del-btn{
+    opacity:0; width:26px; height:26px; border-radius:8px; border:none; background:rgba(242,92,84,.12);
+    color:var(--coral); font-size:15px; font-weight:800; cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; transition:opacity .15s ease;
+  }
+  .editing .del-btn{ opacity:1; }
+  .editing .task{ cursor:default; }
+
+  .add-row{ display:flex; gap:8px; margin-top:4px; margin-bottom:18px; }
+  .add-row input{
+    flex:1; border-radius:12px; border:1.5px dashed rgba(255,255,255,.25); background:rgba(255,255,255,.05);
+    color:var(--cream); padding:10px 12px; font-family:'Nunito'; font-weight:600; font-size:14px;
+  }
+  .add-row input::placeholder{ color:#7A85A3; }
+  .add-row button{
+    background:var(--mint); border:none; color:var(--navy-deep); font-weight:800; border-radius:12px;
+    padding:0 16px; font-family:'Baloo 2'; cursor:pointer;
+  }
+  .edit-hint{
+    font-size:12px; color:#7A85A3; font-weight:700; margin: -6px 2px 12px;
+  }
+
+  /* Result panel */
+  .result{
+    border-radius:20px; padding:22px 18px; text-align:center; margin-top:6px;
+    border:1px solid rgba(255,255,255,.08);
+    background: var(--panel);
+    transition: background .4s ease;
+  }
+  .result.unlocked{
+    background: linear-gradient(160deg, #2b5f52, #1f4a44);
+  }
+  .result-icon{ font-size:38px; margin-bottom:6px; }
+  .result-title{ font-family:'Baloo 2'; font-weight:800; font-size:19px; }
+  .result-sub{ font-size:13.5px; color:#C9D2EE; margin-top:4px; font-weight:600; }
+  .result.unlocked .result-sub{ color:#CFEFE6; }
+
+  .reset-link{
+    display:block; text-align:center; margin-top:16px; color:#7A85A3; font-size:12.5px;
+    font-weight:700; text-decoration:underline; cursor:pointer; background:none; border:none;
+  }
+
+  .confetti{ position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:20px; }
+  .confetti span{
+    position:absolute; top:-10%; font-size:16px; animation: fall 1.8s ease-in forwards;
+  }
+  @keyframes fall{
+    to{ transform: translateY(220px) rotate(340deg); opacity:0; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .track-fill, .rocket-pin, .task, .badge, .badge svg{ transition:none !important; }
+    .confetti span{ animation:none !important; display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="eyebrow" id="dateLabel">Loading…</div>
+        <h1>Daily Mission</h1>
+        <div class="sub" id="subLine">Finish the checklist to launch into screen time.</div>
+      </div>
+      <div class="gear" id="gearBtn" title="Edit missions">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </div>
+    </div>
+
+    <div class="pin-overlay" id="pinOverlay">
+      <div class="pin-modal">
+        <div class="pin-title">🔒 Admin PIN</div>
+        <div class="pin-subtitle" id="pinSubtitle">Enter the PIN to edit missions</div>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" id="pinInput" class="pin-input" placeholder="••••" autocomplete="off">
+        <div class="pin-error" id="pinError" style="display:none;">Incorrect PIN, try again</div>
+        <div class="pin-actions">
+          <button class="pin-btn pin-btn-secondary" id="pinCancel">Cancel</button>
+          <button class="pin-btn pin-btn-primary" id="pinSubmit">Unlock</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="daytype" id="dayTypeToggle">
+      <button data-type="school" id="btnSchool">🎒 School Day</button>
+      <button data-type="off" id="btnOff">🏡 Day Off</button>
+    </div>
+
+    <div class="launch">
+      <div class="launch-row">
+        <div class="track-outer">
+          <div class="track-fill" id="trackFill"></div>
+          <div class="rocket-pin" id="rocketPin">🚀</div>
+        </div>
+        <div class="track-label" id="trackLabel">0/0</div>
+      </div>
+      <div class="streak" id="streakLine">🔥 Day streak: 0</div>
+    </div>
+
+    <div class="missions-label">
+      <span id="missionsLabelText">Today's Missions</span>
+    </div>
+    <div id="taskList"></div>
+    <div class="edit-hint" id="editHint" style="display:none;">Editing the list shown above — switch School Day / Day Off first to edit the other list.</div>
+
+    <div class="add-row" id="addRow" style="display:none;">
+      <input type="text" id="newTaskInput" placeholder="Add a mission…" maxlength="60">
+      <button id="addTaskBtn">Add</button>
+    </div>
+
+    <div class="result" id="resultPanel">
+      <div class="result-icon" id="resultIcon">🔒</div>
+      <div class="result-title" id="resultTitle">Reward's Locked</div>
+      <div class="result-sub" id="resultSub">Complete every mission to unlock it.</div>
+      <button class="unlock-early-btn" id="unlockEarlyBtn" style="display:none;">Unlock now with earned time</button>
+    </div>
+
+    <div class="reward-select" id="rewardSelect" style="display:none;">
+      <div class="reward-label">Choose Today's Reward</div>
+      <div class="reward-options">
+        <button class="reward-btn" data-reward="screen">📱 Screen time</button>
+        <button class="reward-btn" data-reward="lego">🧱 Lego time</button>
+        <button class="reward-btn" data-reward="ps5">🎮 PS5 time</button>
+        <button class="reward-btn" data-reward="other">⭐ Others</button>
+      </div>
+      <input type="text" id="rewardOtherInput" class="reward-other-input" placeholder="Type the reward…" maxlength="40" style="display:none;">
+    </div>
+
+    <button class="reset-link" id="resetBtn">Reset today's checkmarks</button>
+    <div class="edit-hint" style="text-align:center; margin-top:6px;">Faith missions earn the most minutes, helping others earns the next most, and self missions earn the least.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Each mission is tagged with a category that drives how many reward
+  // minutes it earns: 'faith' earns the most, 'helping' (serving/caring for
+  // others) earns the next most, and 'self' (self-care/personal chores)
+  // earns the least. See CATEGORY_WEIGHTS below to adjust the ratio.
+  const SCHOOL_TASKS = [
+    ["Pray", "faith"],
+    ["Fix the bed", "self"],
+    ["Say good morning to everyone", "helping"],
+    ["Read the 'My First Bible'", "faith"],
+    ["Refill tumbler and drink water", "self"],
+    ["Check if there's enough rice", "helping"],
+    ["Prepare bag and clothes to wear", "self"],
+    ["Eat breakfast and drink vitamins", "self"],
+    ["Brush teeth and wear clothes", "self"],
+    ["Say goodbye to everyone", "helping"],
+    ["Say thank you to the one who accompanied you to school", "helping"],
+    ["Listen to the teacher", "helping"],
+    ["Be respectful, kind, and obedient in school", "helping"],
+    ["Finish food and water before school ends", "self"],
+    ["Put ID in the bag after getting inside the car", "self"],
+    ["Say thank you to the one who fetched you", "helping"],
+    ["Help bring things up from the car", "helping"],
+    ["Put shoes in the shoe rack and let people know you're home", "self"],
+    ["Put bag in your room and wash hands", "self"],
+    ["Change clothes and put the dirty ones in the hamper", "self"],
+    ["Hang uniforms that can be worn again", "self"],
+    ["Refill tumbler", "self"],
+    ["Do assignments and have handbook signed", "self"],
+    ["Have a snack", "self"],
+    ["Clean up after the dog (poop and wee)", "helping"],
+    ["Follow tasks from people in the house", "helping"],
+    ["Do house chores", "helping"],
+    ["Play with little brother", "helping"],
+    ["Eat dinner and brush teeth", "self"],
+    ["Drink vitamins and medicine", "self"],
+    ["Keep toys after playing", "self"],
+    ["Say good night and pray before going to sleep", "faith"],
+  ].map(([name, category], i) => ({ id: 's' + i, name, category }));
+
+  const OFF_TASKS = [
+    ["Pray", "faith"],
+    ["Fix the bed", "self"],
+    ["Say good morning to everyone", "helping"],
+    ["Read the 'My First Bible'", "faith"],
+    ["Refill tumbler and drink water", "self"],
+    ["Clean up after the dog (poop and wee)", "helping"],
+    ["Check if there's enough rice", "helping"],
+    ["Eat breakfast and drink vitamins", "self"],
+    ["Brush teeth", "self"],
+    ["Do house chores", "helping"],
+    ["Finish drinking water before lunch time", "self"],
+    ["Eat lunch", "self"],
+    ["Refill tumbler", "self"],
+    ["Nap for 30 minutes to 1 hour", "self"],
+    ["Follow tasks from people in the house", "helping"],
+    ["Have a snack", "self"],
+    ["Practice a sport for 1 hour", "self"],
+    ["Play with little brother", "helping"],
+    ["Keep toys after playing", "self"],
+    ["Eat dinner and brush teeth", "self"],
+    ["Drink vitamins and medicine", "self"],
+    ["Say good night and pray before going to sleep", "faith"],
+  ].map(([name, category], i) => ({ id: 'o' + i, name, category }));
+
+  const todayStr = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  };
+  const prettyDate = () => new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+  const isWeekendToday = () => { const d = new Date().getDay(); return d === 0 || d === 6; };
+
+  let tasksByType = { school: SCHOOL_TASKS, off: OFF_TASKS };
+  let dayType = isWeekendToday() ? 'off' : 'school';
+  let checked = {};
+  let editing = false;
+  let streak = 0;
+  let confettiFired = false;
+  let rewardType = 'screen';
+  let rewardOtherText = '';
+  let rewardUnlocked = false;
+
+  const REWARD_TYPES = {
+    screen: { label: 'Screen time', icon: '📱' },
+    lego:   { label: 'Lego time',   icon: '🧱' },
+    ps5:    { label: 'PS5 time',    icon: '🎮' },
+    other:  { label: 'Others',      icon: '⭐' },
+  };
+
+  // How many reward minutes each mission category is worth, relative to the
+  // others. Faith missions earn the most, helping-others missions earn the
+  // next most, and self missions (personal care / chores for himself) earn
+  // the least. Bump these numbers up or down to change the ratio.
+  const CATEGORY_WEIGHTS = { faith: 3, helping: 2, self: 1 };
+
+  // Splits totalMin across tasks by category weight, using the largest-
+  // remainder method so every value is a whole number of minutes AND they
+  // always add up to exactly totalMin (no minutes lost or gained to rounding).
+  function computeTaskMinutes(tasks, totalMin){
+    if (tasks.length === 0) return [];
+    const weights = tasks.map(t => CATEGORY_WEIGHTS[t.category] || CATEGORY_WEIGHTS.self);
+    const totalWeight = weights.reduce((a,b) => a+b, 0);
+    if (totalWeight === 0) return tasks.map(() => 0);
+    const raw = weights.map(w => totalMin * w / totalWeight);
+    const floors = raw.map(Math.floor);
+    let remainder = totalMin - floors.reduce((a,b) => a+b, 0);
+    const order = raw
+      .map((v, i) => ({ i, frac: v - floors[i] }))
+      .sort((a,b) => b.frac - a.frac);
+    const result = floors.slice();
+    for (let k = 0; k < order.length && remainder > 0; k++, remainder--){
+      result[order[k].i] += 1;
+    }
+    return result;
+  }
+
+  const taskListEl = document.getElementById('taskList');
+  const trackFill = document.getElementById('trackFill');
+  const rocketPin = document.getElementById('rocketPin');
+  const trackLabel = document.getElementById('trackLabel');
+  const resultPanel = document.getElementById('resultPanel');
+  const resultIcon = document.getElementById('resultIcon');
+  const resultTitle = document.getElementById('resultTitle');
+  const resultSub = document.getElementById('resultSub');
+  const dateLabel = document.getElementById('dateLabel');
+  const subLine = document.getElementById('subLine');
+  const streakLine = document.getElementById('streakLine');
+  const addRow = document.getElementById('addRow');
+  const gearBtn = document.getElementById('gearBtn');
+  const editHint = document.getElementById('editHint');
+  const btnSchool = document.getElementById('btnSchool');
+  const btnOff = document.getElementById('btnOff');
+  const rewardButtons = document.querySelectorAll('.reward-btn');
+  const rewardOtherInput = document.getElementById('rewardOtherInput');
+  const rewardSelect = document.getElementById('rewardSelect');
+  const unlockEarlyBtn = document.getElementById('unlockEarlyBtn');
+
+  dateLabel.textContent = prettyDate();
+
+  async function safeGet(key){
+    try{ const v = localStorage.getItem(key); return v; }
+    catch(e){ return null; }
+  }
+  async function safeSet(key, value){
+    try{ localStorage.setItem(key, value); }
+    catch(e){ console.error('storage set failed', e); }
+  }
+
+  function totalRewardMinutes(){
+    return dayType === 'school' ? 60 : 120;
+  }
+  function rewardText(){
+    return dayType === 'school' ? '1 hour' : '2 hours';
+  }
+  function currentRewardLabel(){
+    if (rewardType === 'other'){
+      return rewardOtherText.trim() || 'the reward';
+    }
+    return (REWARD_TYPES[rewardType] || REWARD_TYPES.screen).label;
+  }
+  function formatMinutes(m){
+    m = Math.max(0, Math.round(m));
+    if (m <= 0) return '0 min';
+    if (m < 60) return m + ' min';
+    const h = Math.floor(m/60), mm = m % 60;
+    return h + 'h' + (mm ? ' ' + mm + 'm' : '');
+  }
+
+  const TASK_LIST_VERSION = 5;
+
+  async function loadAll(){
+    const savedSchool = await safeGet('mission:tasks:school');
+    const savedOff = await safeGet('mission:tasks:off');
+    if (savedSchool){ try{ tasksByType.school = JSON.parse(savedSchool); }catch(e){} }
+    else { await safeSet('mission:tasks:school', JSON.stringify(SCHOOL_TASKS)); }
+    if (savedOff){ try{ tasksByType.off = JSON.parse(savedOff); }catch(e){} }
+    else { await safeSet('mission:tasks:off', JSON.stringify(OFF_TASKS)); }
+
+    const savedVersionRaw = await safeGet('mission:tasks:version');
+    const savedVersion = savedVersionRaw ? parseInt(savedVersionRaw, 10) : 1;
+    if (savedVersion < 2){
+      const mergeNewDefaults = (savedList, defaultList) => {
+        const existingNames = new Set(savedList.map(t => t.name));
+        const additions = defaultList.filter(t => !existingNames.has(t.name));
+        return savedList.concat(additions);
+      };
+      tasksByType.school = mergeNewDefaults(tasksByType.school, SCHOOL_TASKS);
+      tasksByType.off = mergeNewDefaults(tasksByType.off, OFF_TASKS);
+    }
+    if (savedVersion < 3){
+      // Rename old "Brush teeth and wear clothes" -> "Brush teeth" on Day Off
+      tasksByType.off = tasksByType.off.map(t =>
+        t.name === 'Brush teeth and wear clothes' ? { ...t, name: 'Brush teeth' } : t
+      );
+      // Insert lunch tasks after "Brush teeth" if not already present
+      const hasLunch = tasksByType.off.some(t => t.name === 'Eat lunch');
+      if (!hasLunch){
+        const lunchTasks = [
+          { id: 'o_lunch1', name: 'Finish drinking water before lunch time' },
+          { id: 'o_lunch2', name: 'Eat lunch' },
+        ];
+        const idx = tasksByType.off.findIndex(t => t.name === 'Brush teeth');
+        if (idx >= 0){
+          tasksByType.off.splice(idx + 1, 0, ...lunchTasks);
+        } else {
+          tasksByType.off = tasksByType.off.concat(lunchTasks);
+        }
+      }
+    }
+    if (savedVersion < 4){
+      const desiredOffOrder = [
+        "Pray", "Fix the bed", "Say good morning to everyone", "Read the 'My First Bible'",
+        "Refill tumbler and drink water", "Clean up after the dog (poop and wee)",
+        "Check if there's enough rice", "Eat breakfast and drink vitamins", "Brush teeth",
+        "Do house chores", "Finish drinking water before lunch time", "Eat lunch",
+        "Refill tumbler", "Nap for 30 minutes to 1 hour", "Follow tasks from people in the house",
+        "Have a snack", "Practice a sport for 1 hour", "Play with little brother",
+        "Keep toys after playing", "Eat dinner and brush teeth", "Drink vitamins and medicine",
+        "Say good night and pray before going to sleep",
+      ];
+      const byName = new Map(tasksByType.off.map(t => [t.name, t]));
+      if (!byName.has('Nap for 30 minutes to 1 hour')){
+        byName.set('Nap for 30 minutes to 1 hour', { id: 'o_nap', name: 'Nap for 30 minutes to 1 hour' });
+      }
+      const reordered = [];
+      const used = new Set();
+      desiredOffOrder.forEach(name => {
+        if (byName.has(name)){ reordered.push(byName.get(name)); used.add(name); }
+      });
+      // preserve any custom tasks the family added that aren't part of the known set
+      tasksByType.off.forEach(t => { if (!used.has(t.name)){ reordered.push(t); used.add(t.name); } });
+      tasksByType.off = reordered;
+    }
+    if (savedVersion < 5){
+      // Backfill the new 'category' field (faith / helping / self) on any
+      // missions saved before this feature existed, matching by name
+      // against the current defaults. Anything unrecognized (a custom
+      // mission the family typed in) defaults to 'self'.
+      const schoolCatByName = new Map(SCHOOL_TASKS.map(t => [t.name, t.category]));
+      const offCatByName = new Map(OFF_TASKS.map(t => [t.name, t.category]));
+      tasksByType.school = tasksByType.school.map(t =>
+        t.category ? t : { ...t, category: schoolCatByName.get(t.name) || 'self' }
+      );
+      tasksByType.off = tasksByType.off.map(t =>
+        t.category ? t : { ...t, category: offCatByName.get(t.name) || 'self' }
+      );
+    }
+    if (savedVersion < TASK_LIST_VERSION){
+      await safeSet('mission:tasks:school', JSON.stringify(tasksByType.school));
+      await safeSet('mission:tasks:off', JSON.stringify(tasksByType.off));
+      await safeSet('mission:tasks:version', String(TASK_LIST_VERSION));
+    }
+
+    const savedDayType = await safeGet('mission:daytype:' + todayStr());
+    if (savedDayType) dayType = savedDayType;
+
+    const savedReward = await safeGet('mission:reward:' + todayStr());
+    if (savedReward && REWARD_TYPES[savedReward]) rewardType = savedReward;
+    const savedRewardOther = await safeGet('mission:rewardOther:' + todayStr());
+    if (savedRewardOther !== null) rewardOtherText = savedRewardOther;
+    const savedUnlocked = await safeGet('mission:unlocked:' + todayStr());
+    rewardUnlocked = savedUnlocked === 'true';
+
+    const meta = await safeGet('mission:meta');
+    let metaObj = { lastDate: null, streak: 0 };
+    if (meta){ try{ metaObj = JSON.parse(meta); }catch(e){} }
+
+    const today = todayStr();
+    const savedChecked = await safeGet('mission:checked:' + today);
+    if (savedChecked){ try{ checked = JSON.parse(savedChecked); }catch(e){ checked = {}; } }
+    else { checked = {}; }
+
+    if (metaObj.lastDate && metaObj.lastDate !== today){
+      const prevChecked = await safeGet('mission:checked:' + metaObj.lastDate);
+      const prevDayType = await safeGet('mission:daytype:' + metaObj.lastDate);
+      let prevComplete = false;
+      if (prevChecked){
+        try{
+          const pc = JSON.parse(prevChecked);
+          const prevTasks = tasksByType[prevDayType || 'school'];
+          prevComplete = prevTasks.length > 0 && prevTasks.every(t => pc[t.id]);
+        }catch(e){}
+      }
+      streak = prevComplete ? (metaObj.streak || 0) : 0;
+    } else {
+      streak = metaObj.streak || 0;
+    }
+
+    await safeSet('mission:meta', JSON.stringify({ lastDate: today, streak, _completedToday: metaObj.lastDate === today ? metaObj._completedToday : false }));
+    render();
+  }
+
+  function currentTasks(){ return tasksByType[dayType]; }
+
+  function render(){
+    btnSchool.classList.toggle('active', dayType === 'school');
+    btnOff.classList.toggle('active', dayType === 'off');
+    subLine.textContent = 'Finish the checklist to earn ' + rewardText() + ' toward your reward.';
+
+    rewardButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.reward === rewardType);
+    });
+    rewardOtherInput.style.display = rewardType === 'other' ? 'block' : 'none';
+    if (rewardType === 'other' && rewardOtherInput.value !== rewardOtherText){
+      rewardOtherInput.value = rewardOtherText;
+    }
+
+    const tasks = currentTasks();
+    taskListEl.innerHTML = '';
+    taskListEl.className = editing ? 'editing' : '';
+    editHint.style.display = editing ? 'block' : 'none';
+
+    const totalMinForTasks = totalRewardMinutes();
+    const taskMinutes = computeTaskMinutes(tasks, totalMinForTasks);
+
+    tasks.forEach((t, i) => {
+      const done = !!checked[t.id];
+      const row = document.createElement('div');
+      row.className = 'task' + (done ? ' done' : '');
+      row.innerHTML = `
+        <div class="step-num">${i+1}</div>
+        <div class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <div class="task-main">
+          <span class="task-name">${t.name}</span>
+          <span class="min-pill">+${taskMinutes[i]} min</span>
+        </div>
+        <button class="del-btn" data-id="${t.id}">✕</button>
+      `;
+      row.addEventListener('click', (e) => {
+        if (editing) return;
+        if (e.target.closest('.del-btn')) return;
+        toggleTask(t.id);
+      });
+      row.querySelector('.del-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeTask(t.id);
+      });
+      taskListEl.appendChild(row);
+    });
+
+    addRow.style.display = editing ? 'flex' : 'none';
+
+    const total = tasks.length;
+    const done = tasks.filter(t => checked[t.id]).length;
+    const pct = total === 0 ? 0 : Math.round((done/total)*100);
+    trackFill.style.width = pct + '%';
+    rocketPin.style.left = pct + '%';
+    trackLabel.textContent = done + '/' + total;
+    streakLine.textContent = '🔥 Day streak: ' + streak;
+
+    const totalMin = totalMinForTasks;
+    const earnedMin = tasks.reduce((sum, t, i) => sum + (checked[t.id] ? taskMinutes[i] : 0), 0);
+    const fullyDone = total > 0 && done === total;
+    const unlocked = rewardUnlocked || fullyDone;
+
+    rewardSelect.style.display = unlocked ? 'block' : 'none';
+
+    if (fullyDone){
+      resultPanel.classList.add('unlocked');
+      resultIcon.textContent = '🎉';
+      resultTitle.textContent = formatMinutes(totalMin) + ' earned — full reward!';
+      resultSub.textContent = 'All missions complete — enjoy ' + rewardText() + ' of ' + currentRewardLabel() + '.';
+      unlockEarlyBtn.style.display = 'none';
+      launchConfetti();
+    } else if (unlocked){
+      resultPanel.classList.add('unlocked');
+      const remaining = total - done;
+      resultIcon.textContent = '🔓';
+      resultTitle.textContent = formatMinutes(earnedMin) + ' unlocked!';
+      resultSub.textContent = 'Enjoy ' + formatMinutes(earnedMin) + ' of ' + currentRewardLabel() + '. ' +
+        (remaining > 0 ? remaining + (remaining === 1 ? ' mission' : ' missions') + ' left if you want to keep earning.' : '');
+      unlockEarlyBtn.style.display = 'none';
+    } else {
+      resultPanel.classList.remove('unlocked');
+      resultIcon.textContent = '🔒';
+      resultTitle.textContent = "Reward's Locked";
+      resultSub.textContent = done > 0
+        ? formatMinutes(earnedMin) + ' earned so far — ' + (total - done) + (total - done === 1 ? ' mission' : ' missions') + ' left for the full reward.'
+        : 'Complete missions to start earning time toward your reward.';
+      unlockEarlyBtn.style.display = 'block';
+      unlockEarlyBtn.textContent = 'If you want to access the time you earned now, tap here and give the tablet to mom or dad';
+    }
+  }
+
+  function launchConfetti(){
+    if (confettiFired) return;
+    confettiFired = true;
+    const layer = document.createElement('div');
+    layer.className = 'confetti';
+    const emojis = ['⭐','✨','🌟','🎊'];
+    for (let i=0;i<16;i++){
+      const s = document.createElement('span');
+      s.textContent = emojis[i % emojis.length];
+      s.style.left = Math.random()*100 + '%';
+      s.style.animationDelay = (Math.random()*0.4) + 's';
+      s.style.fontSize = (12 + Math.random()*10) + 'px';
+      layer.appendChild(s);
+    }
+    resultPanel.appendChild(layer);
+    setTimeout(() => layer.remove(), 2200);
+  }
+
+  async function toggleTask(id){
+    checked[id] = !checked[id];
+    if (!checked[id]) confettiFired = false;
+    await safeSet('mission:checked:' + todayStr(), JSON.stringify(checked));
+
+    const tasks = currentTasks();
+    const total = tasks.length;
+    const done = tasks.filter(t => checked[t.id]).length;
+    if (total > 0 && done === total){
+      rewardUnlocked = true;
+      await safeSet('mission:unlocked:' + todayStr(), 'true');
+      const meta = await safeGet('mission:meta');
+      let metaObj = { lastDate: todayStr(), streak: 0 };
+      if (meta){ try{ metaObj = JSON.parse(meta); }catch(e){} }
+      if (!(metaObj.lastDate === todayStr() && metaObj._completedToday)) {
+        streak = streak + 1;
+        await safeSet('mission:meta', JSON.stringify({ lastDate: todayStr(), streak, _completedToday: true }));
+      }
+    }
+    render();
+  }
+
+  async function removeTask(id){
+    tasksByType[dayType] = tasksByType[dayType].filter(t => t.id !== id);
+    await safeSet('mission:tasks:' + dayType, JSON.stringify(tasksByType[dayType]));
+    render();
+  }
+
+  document.getElementById('addTaskBtn').addEventListener('click', addTaskFromInput);
+  document.getElementById('newTaskInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addTaskFromInput();
+  });
+  async function addTaskFromInput(){
+    const input = document.getElementById('newTaskInput');
+    const val = input.value.trim();
+    if (!val) return;
+    tasksByType[dayType].push({ id: dayType[0] + Date.now(), name: val, category: 'self' });
+    input.value = '';
+    await safeSet('mission:tasks:' + dayType, JSON.stringify(tasksByType[dayType]));
+    render();
+  }
+
+  // Change this to set your own admin PIN
+  const ADMIN_PIN = '1234';
+
+  const pinOverlay = document.getElementById('pinOverlay');
+  const pinInput = document.getElementById('pinInput');
+  const pinError = document.getElementById('pinError');
+  const pinCancel = document.getElementById('pinCancel');
+  const pinSubmit = document.getElementById('pinSubmit');
+  const pinSubtitle = document.getElementById('pinSubtitle');
+
+  let pinPurpose = null; // 'edit' or 'earlyUnlock'
+
+  function openPinModal(purpose){
+    pinPurpose = purpose;
+    pinSubtitle.textContent = purpose === 'earlyUnlock'
+      ? "Ask mom or dad to enter the PIN to unlock reward time early"
+      : 'Enter the PIN to edit missions';
+    pinInput.value = '';
+    pinError.style.display = 'none';
+    pinOverlay.style.display = 'flex';
+    setTimeout(() => pinInput.focus(), 50);
+  }
+  function closePinModal(){
+    pinOverlay.style.display = 'none';
+    pinPurpose = null;
+  }
+  async function onPinSuccess(){
+    const purpose = pinPurpose;
+    closePinModal();
+    if (purpose === 'edit'){
+      editing = true;
+      gearBtn.style.background = 'rgba(244,185,66,.25)';
+      render();
+    } else if (purpose === 'earlyUnlock'){
+      rewardUnlocked = true;
+      await safeSet('mission:unlocked:' + todayStr(), 'true');
+      render();
+    }
+  }
+  function tryUnlock(){
+    if (pinInput.value === ADMIN_PIN){
+      onPinSuccess();
+    } else {
+      pinError.style.display = 'block';
+      pinInput.value = '';
+      pinInput.focus();
+    }
+  }
+
+  gearBtn.addEventListener('click', () => {
+    if (editing){
+      editing = false;
+      gearBtn.style.background = 'rgba(255,255,255,.08)';
+      render();
+    } else {
+      openPinModal('edit');
+    }
+  });
+  pinSubmit.addEventListener('click', tryUnlock);
+  pinCancel.addEventListener('click', closePinModal);
+  pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+  pinOverlay.addEventListener('click', (e) => { if (e.target === pinOverlay) closePinModal(); });
+
+  async function setDayType(type){
+    if (dayType === type) return;
+    dayType = type;
+    await safeSet('mission:daytype:' + todayStr(), type);
+    render();
+  }
+  btnSchool.addEventListener('click', () => setDayType('school'));
+  btnOff.addEventListener('click', () => setDayType('off'));
+
+  async function setRewardType(type){
+    rewardType = type;
+    await safeSet('mission:reward:' + todayStr(), type);
+    render();
+    if (type === 'other') rewardOtherInput.focus();
+  }
+  rewardButtons.forEach(btn => {
+    btn.addEventListener('click', () => setRewardType(btn.dataset.reward));
+  });
+  rewardOtherInput.addEventListener('input', async () => {
+    rewardOtherText = rewardOtherInput.value;
+    await safeSet('mission:rewardOther:' + todayStr(), rewardOtherText);
+    render();
+  });
+
+  unlockEarlyBtn.addEventListener('click', () => {
+    openPinModal('earlyUnlock');
+  });
+
+  const resetBtn = document.getElementById('resetBtn');
+  let resetPending = false;
+  let resetTimeoutId = null;
+  resetBtn.addEventListener('click', async () => {
+    if (!resetPending){
+      resetPending = true;
+      resetBtn.textContent = 'Tap again to confirm reset';
+      resetTimeoutId = setTimeout(() => {
+        resetPending = false;
+        resetBtn.textContent = "Reset today's checkmarks";
+      }, 3000);
+      return;
+    }
+    clearTimeout(resetTimeoutId);
+    resetPending = false;
+    resetBtn.textContent = "Reset today's checkmarks";
+    checked = {};
+    confettiFired = false;
+    rewardUnlocked = false;
+    await safeSet('mission:checked:' + todayStr(), JSON.stringify(checked));
+    await safeSet('mission:unlocked:' + todayStr(), 'false');
+    render();
+  });
+
+  loadAll();
+})();
+</script>
+</body>
+</html>
