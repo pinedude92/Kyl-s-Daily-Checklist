@@ -145,6 +145,13 @@
   }
   .unlock-early-btn:hover{ background:rgba(255,255,255,.14); }
 
+  .confirm-reward-btn{
+    display:block; width:100%; margin-top:14px; border:none; border-radius:12px; padding:13px;
+    font-family:'Baloo 2'; font-weight:800; font-size:14.5px; cursor:pointer;
+    background:var(--gold); color:var(--navy-deep); transition:opacity .15s ease;
+  }
+  .confirm-reward-btn:hover{ opacity:.88; }
+
   /* Launch track */
   .launch{
     background:var(--panel);
@@ -260,6 +267,30 @@
     font-weight:700; text-decoration:underline; cursor:pointer; background:none; border:none;
   }
 
+  /* Reward timer */
+  .timer-panel{
+    background:var(--panel); border-radius:20px; padding:22px 18px 18px; margin-bottom:20px;
+    border:1px solid rgba(255,255,255,.06); text-align:center;
+  }
+  .timer-reward-label{
+    color:#B9C2E0; font-size:12.5px; font-weight:800; letter-spacing:.04em;
+    text-transform:uppercase; margin-bottom:8px;
+  }
+  .timer-clock{
+    font-family:'Baloo 2'; font-weight:800; font-size:46px; color:var(--gold);
+    font-variant-numeric:tabular-nums; margin-bottom:16px; line-height:1;
+  }
+  .timer-panel.finished .timer-clock{ color:var(--mint); }
+  .timer-btn{
+    width:100%; border:none; border-radius:14px; padding:14px; font-family:'Baloo 2';
+    font-weight:800; font-size:15.5px; cursor:pointer; transition:all .2s ease;
+    background:var(--mint); color:var(--navy-deep);
+  }
+  .timer-btn:hover{ opacity:.9; }
+  .timer-btn.running{ background:var(--coral); color:#fff; }
+  .timer-btn:disabled{ opacity:.5; cursor:default; }
+  .timer-panel .reset-link{ margin-top:14px; margin-bottom:0; }
+
   .confetti{ position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:20px; }
   .confetti span{
     position:absolute; top:-10%; font-size:16px; animation: fall 1.8s ease-in forwards;
@@ -348,6 +379,14 @@
         <button class="reward-btn" data-reward="other">⭐ Others</button>
       </div>
       <input type="text" id="rewardOtherInput" class="reward-other-input" placeholder="Type the reward…" maxlength="40" style="display:none;">
+      <button class="confirm-reward-btn" id="confirmRewardBtn">✅ Confirm Reward</button>
+    </div>
+
+    <div class="timer-panel" id="timerPanel" style="display:none;">
+      <div class="timer-reward-label" id="timerRewardLabel">Today's Reward</div>
+      <div class="timer-clock" id="timerClock">00:00</div>
+      <button class="timer-btn" id="timerStartStopBtn">▶️ Start Timer</button>
+      <button class="reset-link" id="changeRewardBtn">Change reward</button>
     </div>
 
     <button class="reset-link" id="resetBtn">Reset today's checkmarks</button>
@@ -437,6 +476,12 @@
   let rewardType = 'screen';
   let rewardOtherText = '';
   let rewardUnlocked = false;
+  let rewardConfirmed = false;
+  let timerDurationSec = 0;
+  let timerRemainingSec = 0;
+  let timerRunning = false;
+  let timerEndAt = null;
+  let timerIntervalId = null;
 
   const REWARD_TYPES = {
     screen: { label: 'Screen time', icon: '📱' },
@@ -492,6 +537,12 @@
   const rewardOtherInput = document.getElementById('rewardOtherInput');
   const rewardSelect = document.getElementById('rewardSelect');
   const unlockEarlyBtn = document.getElementById('unlockEarlyBtn');
+  const confirmRewardBtn = document.getElementById('confirmRewardBtn');
+  const timerPanel = document.getElementById('timerPanel');
+  const timerRewardLabel = document.getElementById('timerRewardLabel');
+  const timerClock = document.getElementById('timerClock');
+  const timerStartStopBtn = document.getElementById('timerStartStopBtn');
+  const changeRewardBtn = document.getElementById('changeRewardBtn');
 
   dateLabel.textContent = prettyDate();
 
@@ -522,6 +573,15 @@
     if (m < 60) return m + ' min';
     const h = Math.floor(m/60), mm = m % 60;
     return h + 'h' + (mm ? ' ' + mm + 'm' : '');
+  }
+  function formatClock(totalSeconds){
+    totalSeconds = Math.max(0, Math.round(totalSeconds));
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    const mm = String(m).padStart(2, '0');
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? (h + ':' + mm + ':' + ss) : (mm + ':' + ss);
   }
 
   const TASK_LIST_VERSION = 5;
@@ -619,6 +679,17 @@
     const savedUnlocked = await safeGet('mission:unlocked:' + todayStr());
     rewardUnlocked = savedUnlocked === 'true';
 
+    const savedConfirmed = await safeGet('mission:rewardConfirmed:' + todayStr());
+    rewardConfirmed = savedConfirmed === 'true';
+    const savedDuration = await safeGet('mission:timerDuration:' + todayStr());
+    timerDurationSec = savedDuration ? parseInt(savedDuration, 10) || 0 : 0;
+    const savedRemaining = await safeGet('mission:timerRemaining:' + todayStr());
+    timerRemainingSec = (savedRemaining !== null && savedRemaining !== '') ? (parseInt(savedRemaining, 10) || 0) : timerDurationSec;
+    const savedRunning = await safeGet('mission:timerRunning:' + todayStr());
+    timerRunning = savedRunning === 'true';
+    const savedEndAt = await safeGet('mission:timerEndAt:' + todayStr());
+    timerEndAt = (savedEndAt && savedEndAt !== '') ? (parseInt(savedEndAt, 10) || null) : null;
+
     const meta = await safeGet('mission:meta');
     let metaObj = { lastDate: null, streak: 0 };
     if (meta){ try{ metaObj = JSON.parse(meta); }catch(e){} }
@@ -646,6 +717,16 @@
 
     await safeSet('mission:meta', JSON.stringify({ lastDate: today, streak, _completedToday: metaObj.lastDate === today ? metaObj._completedToday : false }));
     render();
+    if (timerRunning && timerEndAt != null){
+      startTimerInterval();
+    }
+  }
+
+  function computeEarnedMinutes(){
+    const tasks = currentTasks();
+    const totalMin = totalRewardMinutes();
+    const taskMinutes = computeTaskMinutes(tasks, totalMin);
+    return tasks.reduce((sum, t, i) => sum + (checked[t.id] ? taskMinutes[i] : 0), 0);
   }
 
   function currentTasks(){ return tasksByType[dayType]; }
@@ -713,7 +794,11 @@
     const fullyDone = total > 0 && done === total;
     const unlocked = rewardUnlocked || fullyDone;
 
-    rewardSelect.style.display = unlocked ? 'block' : 'none';
+    rewardSelect.style.display = (unlocked && !rewardConfirmed) ? 'block' : 'none';
+    timerPanel.style.display = (unlocked && rewardConfirmed) ? 'block' : 'none';
+    if (unlocked && rewardConfirmed){
+      updateTimerDisplay();
+    }
 
     if (fullyDone){
       resultPanel.classList.add('unlocked');
@@ -893,6 +978,100 @@
     openPinModal('earlyUnlock');
   });
 
+  // --- Reward confirmation + countdown timer ---
+  function stopTimerInterval(){
+    if (timerIntervalId){ clearInterval(timerIntervalId); timerIntervalId = null; }
+  }
+  function startTimerInterval(){
+    if (timerIntervalId) return;
+    timerIntervalId = setInterval(tickTimer, 500);
+    tickTimer();
+  }
+  function tickTimer(){
+    if (!timerRunning || timerEndAt == null) return;
+    const remaining = Math.max(0, Math.round((timerEndAt - Date.now()) / 1000));
+    timerRemainingSec = remaining;
+    if (remaining <= 0){
+      finishTimer();
+    } else {
+      updateTimerDisplay();
+    }
+  }
+  async function finishTimer(){
+    timerRunning = false;
+    timerRemainingSec = 0;
+    timerEndAt = null;
+    stopTimerInterval();
+    await safeSet('mission:timerRemaining:' + todayStr(), '0');
+    await safeSet('mission:timerRunning:' + todayStr(), 'false');
+    await safeSet('mission:timerEndAt:' + todayStr(), '');
+    updateTimerDisplay();
+  }
+  function updateTimerDisplay(){
+    timerRewardLabel.textContent = "Today's Reward: " + currentRewardLabel();
+    timerClock.textContent = formatClock(timerRemainingSec);
+    const finished = timerRemainingSec <= 0;
+    timerPanel.classList.toggle('finished', finished);
+    timerStartStopBtn.classList.toggle('running', timerRunning && !finished);
+    if (finished){
+      timerStartStopBtn.textContent = '🎉 Time\'s Up!';
+      timerStartStopBtn.disabled = true;
+    } else if (timerRunning){
+      timerStartStopBtn.textContent = '⏸ Stop Timer';
+      timerStartStopBtn.disabled = false;
+    } else {
+      timerStartStopBtn.textContent = '▶️ Start Timer';
+      timerStartStopBtn.disabled = false;
+    }
+  }
+  async function confirmReward(){
+    const earned = computeEarnedMinutes();
+    rewardConfirmed = true;
+    timerDurationSec = Math.max(0, Math.round(earned * 60));
+    timerRemainingSec = timerDurationSec;
+    timerRunning = false;
+    timerEndAt = null;
+    stopTimerInterval();
+    await safeSet('mission:rewardConfirmed:' + todayStr(), 'true');
+    await safeSet('mission:timerDuration:' + todayStr(), String(timerDurationSec));
+    await safeSet('mission:timerRemaining:' + todayStr(), String(timerRemainingSec));
+    await safeSet('mission:timerRunning:' + todayStr(), 'false');
+    await safeSet('mission:timerEndAt:' + todayStr(), '');
+    render();
+  }
+  async function changeReward(){
+    rewardConfirmed = false;
+    timerRunning = false;
+    timerEndAt = null;
+    stopTimerInterval();
+    await safeSet('mission:rewardConfirmed:' + todayStr(), 'false');
+    await safeSet('mission:timerRunning:' + todayStr(), 'false');
+    await safeSet('mission:timerEndAt:' + todayStr(), '');
+    render();
+  }
+  async function toggleTimer(){
+    if (timerRemainingSec <= 0) return;
+    if (timerRunning){
+      timerRemainingSec = Math.max(0, Math.round((timerEndAt - Date.now()) / 1000));
+      timerRunning = false;
+      timerEndAt = null;
+      stopTimerInterval();
+      await safeSet('mission:timerRemaining:' + todayStr(), String(timerRemainingSec));
+      await safeSet('mission:timerRunning:' + todayStr(), 'false');
+      await safeSet('mission:timerEndAt:' + todayStr(), '');
+    } else {
+      timerEndAt = Date.now() + timerRemainingSec * 1000;
+      timerRunning = true;
+      await safeSet('mission:timerRunning:' + todayStr(), 'true');
+      await safeSet('mission:timerEndAt:' + todayStr(), String(timerEndAt));
+      startTimerInterval();
+    }
+    updateTimerDisplay();
+  }
+  confirmRewardBtn.addEventListener('click', confirmReward);
+  changeRewardBtn.addEventListener('click', changeReward);
+  timerStartStopBtn.addEventListener('click', toggleTimer);
+
   const resetBtn = document.getElementById('resetBtn');
   let resetPending = false;
   let resetTimeoutId = null;
@@ -912,8 +1091,19 @@
     checked = {};
     confettiFired = false;
     rewardUnlocked = false;
+    rewardConfirmed = false;
+    timerDurationSec = 0;
+    timerRemainingSec = 0;
+    timerRunning = false;
+    timerEndAt = null;
+    stopTimerInterval();
     await safeSet('mission:checked:' + todayStr(), JSON.stringify(checked));
     await safeSet('mission:unlocked:' + todayStr(), 'false');
+    await safeSet('mission:rewardConfirmed:' + todayStr(), 'false');
+    await safeSet('mission:timerDuration:' + todayStr(), '0');
+    await safeSet('mission:timerRemaining:' + todayStr(), '0');
+    await safeSet('mission:timerRunning:' + todayStr(), 'false');
+    await safeSet('mission:timerEndAt:' + todayStr(), '');
     render();
   });
 
